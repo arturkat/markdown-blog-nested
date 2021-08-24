@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Edit Article</title>
+    <%- include('../common/head') %>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1 class="mb-4">Edit Article</h1>
+
+        <!-- Указываем что я буду передавать файлы, в частности изображения - enctype="multipart/form-data" -->
+        <form action="/articles/<%= article.id %>?_method=PUT" method="POST" enctype="multipart/form-data">
+            <%- include('_form_fields') %>
+        </form>
+
+    </div>
+</body>
+
+</html>
