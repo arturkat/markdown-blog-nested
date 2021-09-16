@@ -49,7 +49,7 @@ app.use(methodOverride('_method')) // specify the parameter name for this librar
 // Use my index router
 app.use('/', indexRouter)
 // Use my articles router after '/articles' url part
-app.use('/articles', articleRouter)
+app.use('/', articleRouter)
 
 
 // app.listen(5000)

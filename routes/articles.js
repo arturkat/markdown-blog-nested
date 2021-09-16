@@ -64,10 +64,10 @@ const multerSubArticlesFields = [
 /**
  * @description Form action to Delete the subArticle ( _method="DELETE" )
  */
-router.delete('/subarticle/:id', async (req, res) => {
-    let subArticle = null
+router.delete('/articles/subarticle/:id', async (req, res) => {
 
     // Find the subArctile
+    let subArticle = null
     try {
         subArticle = await SubArticle.findById(req.params.id)
     } catch (err) {
@@ -119,10 +119,17 @@ router.delete('/subarticle/:id', async (req, res) => {
 /**
  * @description Page for creating a new SubArticle
  */
-router.get('/subarticle/new', async (req, res) => {
-    const article = await Article.findById(req.query.parentArticleId)
+router.get('/articles/subarticle/new', async (req, res) => {
+    // Find the Article by id
+    let article = null
+    try {
+        article = await Article.findById(req.query.parentArticleId)
+    } catch (err) {
+        console.error('--->> Can\'t find the Article by id: ', err)
+    }
 
     res.render('subArticles/new', {
+        article,
         subArticle: new SubArticle(), // создаём пустую под-статью для темплейта, что б не было ошибок
         parentArticleId: req.query.parentArticleId, //  for form action
         pageRoute: 'new'
@@ -130,19 +137,142 @@ router.get('/subarticle/new', async (req, res) => {
 })
 
 
+// articles/one/subarticle/1
+
 /**
  * @description Page for viewing the SubArticle
  */
-router.get('/subarticle/:id', async (req, res) => {
-    // TODO: 1) Add try/catch 2) Use populate instead
-    const subArticle = await SubArticle.findById(req.params.id)
+/*
+http://localhost:5000/articles/one/subarticle/1
+*/
+router.get('/articles/:parentArticleSlug/subarticle/:subArticleIndex', async (req, res) => {
+    // Find the Article by slug
+    let article = null
+    try {
+        article = await Article.findOne({
+            slug: req.params.parentArticleSlug
+        })
+    } catch (err) {
+        console.error('---> Can\'t find the Article by slug: ', err)
+    }
+    if (article == null) res.redirect('/')
 
-    const article = await Article.findById(subArticle.parentArticle)
-    await article.populate('subArticles').execPopulate()
+    // Pupulate the subArticles
+    let subArticles = null
+    if (article != null) {
+        try {
+            await article.populate('subArticles').execPopulate()
+            subArticles = article.subArticles
+        } catch (err) {
+            console.error('---> Can\'t populate the subArticles: ', err)
+        }
+    }
+    if (subArticles == null) res.redirect('/')
+
+    // Get subArticle index
+    let subArticleIndex = parseInt(req.params.subArticleIndex)
+
+    // Get subArticle by the index
+    let subArticle = null
+    subArticle = subArticles[subArticleIndex]
+    if (subArticle === undefined) {
+        subArticle = null
+        // if (subArticles == null) res.redirect('/')
+    }
+
+    // Set next button url
+    let nextBtnUrl = null
+    let nextSubArticle = subArticles[subArticleIndex + 1]
+    if (nextSubArticle !== undefined) {
+        nextBtnUrl = `/articles/${article.slug}/subarticle/${subArticleIndex + 1}`
+    } else {
+        // Alternative link when there is no next sub article
+        // nextBtnUrl = `/articles/${article.slug}`
+    }
+
+    // Set prev button url
+    let prevBtnUrl = null
+    let prevSubArticle = subArticles[subArticleIndex - 1]
+    if (prevSubArticle !== undefined) {
+        prevBtnUrl = `/articles/${article.slug}/subarticle/${subArticleIndex - 1}`
+    } else {
+        // Alternative link when there is no prev sub article
+        // nextBtnUrl = `/articles/${article.slug}`
+    }
 
     res.render('subArticles/show', {
-        article: article,
-        subArticle: subArticle
+        article,
+        subArticle,
+        subArticleIndex,
+        nextBtnUrl,
+        prevBtnUrl,
+    })
+})
+
+
+/**
+ * @description Page for viewing the SubArticle
+ */
+router.get('/articles/subarticle/:id', async (req, res) => {
+    // Find the subArticle by id
+    let subArticle = null
+    try {
+        subArticle = await SubArticle.findById(req.params.id)
+    } catch (err) {
+        console.error('---> Can\'t get the subArticle: ', err)
+    }
+
+    if (subArticle == null) res.redirect('/')
+
+    // Populate the parentArticle
+    let parentArticle = null
+    if (subArticle != null) {
+        try {
+            await subArticle.populate('parentArticle').execPopulate()
+            parentArticle = subArticle.parentArticle
+        } catch (err) {
+            console.error('---> Can\'t populate the parentArticle: ', err)
+        }
+    }
+
+    if (parentArticle == null) res.redirect('/')
+
+    // Find the subArticle index in the parent's array
+    let subArticleIndex = null
+    parentArticle.subArticles.forEach((arrayArticle, arrayArticleIndex) => {
+        if (arrayArticle._id.toString() === subArticle._id.toString()) {
+            subArticleIndex = arrayArticleIndex
+        }
+    })
+
+    // Get next button url
+    let nextBtnUrl = null
+    let nextSubArticle = undefined
+    if (subArticleIndex !== null) {
+        nextSubArticle = parentArticle.subArticles[subArticleIndex + 1]
+    }
+    if (typeof nextSubArticle !== 'undefined') {
+        let nextSubArticleId = nextSubArticle._id.toString()
+        nextBtnUrl = `/articles/subarticle/${nextSubArticleId}`
+    }
+
+    // Get previous button url
+    let prevBtnUrl = null
+    let prevSubArticle = undefined
+    if (subArticleIndex !== null) {
+        prevSubArticle = parentArticle.subArticles[subArticleIndex - 1]
+    }
+    if (typeof prevSubArticle !== 'undefined') {
+        let prevSubArticleId = prevSubArticle._id.toString()
+        prevBtnUrl = `/articles/subarticle/${prevSubArticleId}`
+    }
+
+    res.render('subArticles/show', {
+        article: subArticle.parentArticle,
+        subArticle,
+        subArticleIndex,
+        nextBtnUrl,
+        prevBtnUrl
     })
 })
 
@@ -150,11 +280,25 @@ router.get('/subarticle/:id', async (req, res) => {
 /**
  * @description Route to display the page with form for editing an existing sub article
  */
-router.get('/subarticle/edit/:id', async (req, res) => {
-    const subArticle = await SubArticle.findById(req.params.id)
-    if (subArticle == null) res.redirect('/')
-    await subArticle.populate('parentArticle').execPopulate()
-    // console.log('-->>', subArticle)
+router.get('/articles/subarticle/edit/:id', async (req, res) => {
+
+    // Find the subArticle by id
+    let subArticle = null
+    try {
+        subArticle = await SubArticle.findById(req.params.id)
+    } catch (err) {
+        console.error('---> Can\'t get the subArticle: ', err)
+    }
+
+    // Populate the parentArticle
+    try {
+        await subArticle.populate('parentArticle').execPopulate()
+    } catch (err) {
+        console.error('---> Can\'t populate the parentArticle: ', err)
+    }
+
+    if (subArticle == null || subArticle.parentArticle == null) res.redirect('/')
+
     res.render('subArticles/edit', {
         subArticle: subArticle,
         article: subArticle.parentArticle,
@@ -167,7 +311,7 @@ router.get('/subarticle/edit/:id', async (req, res) => {
 /**
  * @description Form action for creating a new SubArticle
  */
-router.post('/subarticle/new', multerUpload.fields(multerSubArticlesFields), async (req, res, next) => { // '/articles/subarticle/new'
+router.post('/articles/subarticle/new', multerUpload.fields(multerSubArticlesFields), async (req, res, next) => { // '/articles/subarticle/new'
     req.subArticle = new SubArticle()
     next()
 }, SaveUpdateSubArticleHandler('new'))
@@ -176,8 +320,17 @@ router.post('/subarticle/new', multerUpload.fields(multerSubArticlesFields), asy
 /**
  * @description Form action for creating a new SubArticle
  */
-router.put('/subarticle/edit/:id', multerUpload.fields(multerSubArticlesFields), async (req, res, next) => { // '/articles/subarticle/new'
-    req.subArticle = await SubArticle.findById(req.params.id)
+router.put('/articles/subarticle/edit/:id', multerUpload.fields(multerSubArticlesFields), async (req, res, next) => { // '/articles/subarticle/new'
+    // Find the SubArticle for editing
+    let subArticle = null
+    try {
+        subArticle = await SubArticle.findById(req.params.id)
+    } catch (err) {
+        console.error('--->> Can\'t find the subArticle by id for editing: ', err)
+    }
+
+    req.subArticle = subArticle
+
     next()
 }, SaveUpdateSubArticleHandler('edit'))
 
@@ -255,7 +408,7 @@ function SaveUpdateSubArticleHandler(pageRoute) {
                 removeArticleCover2(articleFolderPath, newSubArticle.coverImageName)
                 newSubArticle.coverImageName = null
                 try {
-                    newSubArticle = await newSubArticle.save() 
+                    newSubArticle = await newSubArticle.save()
                 } catch (err) {
                     console.error('---> Can\'t save the newSubArticle\'s coverImageName: ', err)
                 }
@@ -315,10 +468,22 @@ function SaveUpdateSubArticleHandler(pageRoute) {
 
 
 
+
+
+
+
+
+
+
+/***************************************************************************/
+/*************************** start Articles *******************************/
+/***************************************************************************/
+
+
 /**
  * @description Show all articles
  */
-router.get('/', (req, res) => {
+router.get('/articles', (req, res) => {
     res.redirect('/') // from '/articles' to '/'
 })
 
@@ -326,7 +491,7 @@ router.get('/', (req, res) => {
 /**
  * @description Route to dispay the page with form for creating a new article
  */
-router.get('/new', (req, res) => {
+router.get('/articles/new', (req, res) => {
     // res.send('In articles')
 
     res.render('articles/new', {
@@ -339,9 +504,17 @@ router.get('/new', (req, res) => {
 /**
  * @description Route to display the page with form for editing an existing article
  */
-router.get('/edit/:id', async (req, res) => {
-    const editArticle = await Article.findById(req.params.id)
+router.get('/articles/edit/:id', async (req, res) => {
+    // Find the Article for editing
+    let editArticle = null
+    try {
+        editArticle = await Article.findById(req.params.id)
+    } catch (err) {
+        console.error('--->> Can\'t find the Article by id for editing: ', err)
+    }
+
     if (editArticle == null) res.redirect('/')
+
     res.render('articles/edit', {
         article: editArticle,
         pageRoute: 'edit'
@@ -352,15 +525,26 @@ router.get('/edit/:id', async (req, res) => {
 /**
  * @description Route to display the article page
  */
-router.get('/:slug', async (req, res) => {
+router.get('/articles/:slug', async (req, res) => {
+    // Find the Article by slug
+    let article = null
+    try {
+        article = await Article.findOne({
+            slug: req.params.slug
+        })
+    } catch (err) {
+        console.error('--->> Can\'t find the Article by slug for showing: ', err)
+    }
 
-    let article = await Article.findOne({
-        slug: req.params.slug
-    })
     // Pupulate the subArticles ref
     if (article != null) {
-        await article.populate('subArticles').execPopulate()
+        try {
+            await article.populate('subArticles').execPopulate()
+        } catch (err) {
+            console.error('--->> Can\'t populate the subArticles of the Article for showing: ', err)
+        }
     }
+
     if (article == null) res.redirect('/')
 
     res.render('articles/show', {
@@ -372,10 +556,85 @@ router.get('/:slug', async (req, res) => {
 /**
  * @description Form action to Delete an article ( _method="DELETE" )
  */
-router.delete('/:id', async (req, res) => {
-    const article = await Article.findByIdAndDelete(req.params.id)
-    removeArticleCover(article.coverImageName)
+router.delete('/articles/:id', async (req, res) => {
+
+    // Find the Article
+    let article = null
+    try {
+        article = await Article.findById(req.params.id)
+    } catch (err) {
+        console.error('---> Can\'t find the Article in order to detele it: ', err)
+    }
+
+    // Populate the subArticles
+    try {
+        await article.populate('subArticles').execPopulate()
+    } catch (err) {
+        console.error('--->> Can\'t populate the subArticles in order to detele them: ', err)
+    }
+
+    // Loop throught the subArticles and delete them
+    if (article != null && article.subArticles.length) {
+        while (article.subArticles.length > 0) {
+            let subArticle = article.subArticles.$pop()
+            // console.log('subArticle = ', subArticle)
+            if (subArticle == null) continue
+            
+            // Remove subArticle's cover from the server
+            if (subArticle != null && subArticle.coverImageName != null) {
+                let articleFolderPath = path.join(uploadPath, article.folderName)
+                removeArticleCover2(articleFolderPath, subArticle.coverImageName)
+            }
+
+            // Delete the subArticle from the DB
+            let deletedSubArticle = null
+            try {
+                deletedSubArticle = await SubArticle.findByIdAndDelete(subArticle._id)
+            } catch (err) {
+                console.error('--->> Can\'t findOneAndDelete the subArticle: ', err)
+            }
+            // console.log('deletedSubArticle = ', deletedSubArticle)
+
+            // Save the parentArticle after loop in order to update the array [$pop()]
+            try {
+                await article.save()
+            } catch (err) {
+                console.error('--->> Can\'t pull the subArticle form parentArticle\'s array: ', err)
+            }
+        }
+    }
+
+
+    /* Handle the Article deletion */
+
+    // Delete the Article
+    let deletedArticle = null
+    try {
+        deletedArticle = await Article.findByIdAndDelete(req.params.id)
+    } catch (err) {
+        console.error('---> Can\'t find by id and delete the Article: ', err)
+    }
+
+    // Get Article's folder path
+    let deletedArticleFolderPath = ''
+    if (deletedArticle != null) {
+        deletedArticleFolderPath = path.join(uploadPath, deletedArticle.folderName)
+    }
+
+    // Delete the Article's cover image
+    if (deletedArticle != null && deletedArticle.coverImageName != null) {
+        removeArticleCover2(deletedArticleFolderPath, deletedArticle.coverImageName)
+    }
+
+    // Delete the Article's folder
+    if (deletedArticle != null) {
+        if (fs.existsSync(deletedArticleFolderPath)) {
+            fs.rmdirSync(deletedArticleFolderPath, { recursive: true })
+        }
+    }
+
     res.redirect('/')
+    // res.redirect(`/articles/${article.slug}`)
 })
 
 
@@ -384,7 +643,7 @@ router.delete('/:id', async (req, res) => {
  */
 // multerUpload.single('cover') - the 'cover' is a name of input in form
 // multerUpload.fields(multerArticlesFields) - use multiple fields [req.files]
-router.post('/new', multerUpload.fields(multerArticlesFields), async (req, res, next) => {
+router.post('/articles/new', multerUpload.fields(multerArticlesFields), async (req, res, next) => {
     req.article = new Article()
     next()
 }, saveArticleAndRedirect('new'))
@@ -395,8 +654,18 @@ router.post('/new', multerUpload.fields(multerArticlesFields), async (req, res, 
  */
 // multerUpload.single('cover') - the 'cover' is a name of input in form
 // multerUpload.fields(multerArticlesFields) - use multiple fields [req.files]
-router.put('/:id', multerUpload.fields(multerArticlesFields), async (req, res, next) => {
-    req.article = await Article.findById(req.params.id)
+router.put('/articles/:id', multerUpload.fields(multerArticlesFields), async (req, res, next) => {
+    
+    // Find the Article by id
+    let article = null
+    try {
+        article = await Article.findById(req.params.id)
+    } catch (err) {
+        console.error('--->> Can\'t find the Article by id: ', err)
+    }
+
+    req.article = article
+
     next()
 }, saveArticleAndRedirect('edit'))
 
@@ -485,7 +754,7 @@ function saveArticleAndRedirect(route) {
         if (cover != null && article.coverImageName != null) {
             // create new folder for the image (if not exists)
             let articleFolderPath = path.join(uploadPath, article.folderName)
-            if ( !fs.existsSync(articleFolderPath) ) {
+            if (!fs.existsSync(articleFolderPath)) {
                 try {
                     fs.mkdirSync(articleFolderPath)
                 } catch (err) {
@@ -544,5 +813,9 @@ function removeFile(filePath) {
         console.info('[removeFile] Removed file: ', filePath)
     })
 }
+
+/***************************************************************************/
+/*************************** end Articles *******************************/
+/***************************************************************************/
 
 module.exports = router

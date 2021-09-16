@@ -20,6 +20,9 @@
         <div class="mb-2">
             <a href="/" class="btn btn-secondary">All Articles</a>
             <a href="/articles/edit/<%= article.id %>" class="btn btn-primary">Edit</a>
+            <form action="/articles/<%= article.id %>?_method=DELETE" method="POST" class="d-inline">
+                <button class="btn btn-danger" type="submit">Delete</button>
+            </form>
             <a href="/articles/subarticle/new?parentArticleId=<%= article.id %>" class="btn btn-success">Add New SubArticle</a>
         </div>
 
@@ -48,14 +51,15 @@
         <h5>
             Sub Articles length = <%= article.subArticles.length %>
         </h5>
-        <% article.subArticles.forEach(subArticle => { %>
+
+        <% article.subArticles.forEach((subArticle, subArticleIndex) => { %>
             <div class="card">
                 <div class="card-body">
                     <div>
-                        <a href="/articles/subarticle/<%= subArticle.id %>" class="btn btn-primary">Open</a>
+                        <a href="/articles/<%= article.slug %>/subarticle/<%= subArticleIndex %>" class="btn btn-primary">Open</a>
                     </div>
                     <p>
-                        <%= subArticle.markdown %>
+                        <%- subArticle.sanitizedHtml %>
                     </p>
                     <p>
                         Image = <%= article.coverImageFolderPath + subArticle.coverImageName %>

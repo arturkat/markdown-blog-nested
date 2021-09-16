@@ -40,5 +40,10 @@
     <input value="<%= subArticle.test %>" name="test" id="test" type="text" class="form-control">
 </div> -->
 
-<a href="/articles/subarticle/<%= subArticle.id %>" class="btn btn-secondary">Cancel</a>
+<% if (locals.pageRoute === 'edit') { %>
+    <a href="/articles/subarticle/<%= subArticle.id %>" class="btn btn-secondary">Cancel</a>
+<% } else if (locals.pageRoute === 'new') { %>
+    <a href="/articles/subarticle/<%= article.id %>" class="btn btn-secondary">Cancel</a>
+<% } %>
+
 <button type="submit" class="btn btn-primary">Save</button>
